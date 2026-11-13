@@ -1,0 +1,19 @@
+# Bash completion for device_runner.
+_seq_quince_device_runner()
+{
+    local current="${COMP_WORDS[COMP_CWORD]}"
+    local previous="${COMP_WORDS[COMP_CWORD-1]}"
+    COMPREPLY=()
+    case "$previous" in
+        --log-level)
+            mapfile -t COMPREPLY < <(compgen -W '0 1 2 3 4 5' -- "$current")
+            ;;
+        --config|--device|--preset|--replace)
+            ;;
+        *)
+            mapfile -t COMPREPLY < <(compgen -W \
+                '--config --device --preset --replace --log-level --help' -- "$current")
+            ;;
+    esac
+}
+complete -F _seq_quince_device_runner device_runner

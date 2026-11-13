@@ -1,0 +1,111 @@
+_scheduler_runner_complete()
+{
+    local cur prev opts loop_values preset_values expecting word i
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts="--help -h --replace --config --preset --snapshot --loop --delay --log-level"
+    loop_values="infinite inf forever 1 2 5 10 100"
+    preset_values="default test prod dev"
+
+    case "$prev" in
+        --config)
+            # Complete files for config
+            COMPREPLY=( $(compgen -f -- "$cur") )
+            return 0
+            ;;
+        --preset)
+            # Optionally, offer static completions or load dynamically
+            COMPREPLY=( $(compgen -W "${preset_values}" -- "$cur") )
+            return 0
+            ;;
+        --delay)
+            # Numeric value expected
+            COMPREPLY=()
+            return 0
+            ;;
+        --loop)
+            # Optional argument: either suggest loop values or allow another option
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -W "${loop_values}" -- "$cur") )
+            fi
+            return 0
+            ;;
+        --replace)
+            # User is likely entering KEY=VALUE, but allow switching to another option
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "$cur") )
+            else
+                COMPREPLY=()
+            fi
+            return 0
+            ;;
+    esac
+
+    # Track whether we are currently collecting values for an option.
+    expecting=""
+    for ((i=1; i<COMP_CWORD; i++)); do
+        word="${COMP_WORDS[i]}"
+
+        if [[ -n "$expecting" ]]; then
+            case "$expecting" in
+                replace)
+                    if [[ "$word" == -* ]]; then
+                        expecting=""
+                    else
+                        continue
+                    fi
+                    ;;
+                loop)
+                    if [[ "$word" == -* ]]; then
+                        expecting=""
+                    else
+                        expecting=""
+                        continue
+                    fi
+                    ;;
+                config|preset|delay)
+                    expecting=""
+                    continue
+                    ;;
+            esac
+        fi
+
+        case "$word" in
+            --replace)
+                expecting="replace"
+                ;;
+            --config)
+                expecting="config"
+                ;;
+            --preset)
+                expecting="preset"
+                ;;
+            --delay)
+                expecting="delay"
+                ;;
+            --loop)
+                expecting="loop"
+                ;;
+        esac
+    done
+
+    if [[ "$expecting" == "replace" && "$cur" != -* ]]; then
+        COMPREPLY=()
+        return 0
+    fi
+
+    # If current word starts with '-', complete options
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "${opts}" -- "$cur") )
+        return 0
+    fi
+
+    # Default to completing files for last positional argument (if any)
+    COMPREPLY=( $(compgen -f -- "$cur") )
+}
+
+complete -F _scheduler_runner_complete scheduler_runner
