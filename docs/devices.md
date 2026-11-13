@@ -6,15 +6,15 @@ the type. Types are resolved by `seq_quince.device.factory.DeviceFactory` (`DEVI
 
 | `type`                   | Module                                   | Config keys                                                                 | Pose keys (preset)                     | Rollback |
 |--------------------------|------------------------------------------|-----------------------------------------------------------------------------|----------------------------------------|----------|
-| [SimDevice](devices/README-sim.md) | `device_concrete/sim.py`       | `delay`, `initial_pose`                                                     | any                                    | yes      |
-| [OphydMotorDevice](devices/README-ophyd-motor.md) | `device_concrete/ophyd_motor.py` | `pv_prefix`                                                | `position`                             | yes      |
-| [ActuatorDevice](devices/README-actuator.md) | `device_concrete/actuator.py` | `config` (kiwi-scan `ActuatorConfig`)                              | `position`                             | yes      |
-| [HexapodDevice](devices/README-hexapod.md) | `device_concrete/hexapod.py` | `config.axes.{Tx,Ty,Tz,Rx,Ry,Rz}` (ActuatorConfig each), `config.enable_coordinated`, `config.run_after_pv`, `config.run_after_value` | `Tx`…`Rz` (all when coordinated, else exactly one) | yes |
-| [SequenceDevice](devices/README-sequence.md) | `device_concrete/sequence.py` | `sequence.<step>.{pv, value, queue_delay, desired_pv}`             | `<step>` value overrides               | yes      |
-| [ToggleDevice](devices/README-toggle.md) | `device_concrete/toggle.py` | `readback_pv`, `setpoint`, `toggle_pv`, `toggle_val`                     | `setpoint`                             | yes      |
-| [ScanDevice](devices/README-scan.md) | `device_concrete/scan.py`    | `scantype`, `config`, `replacements`, `data_dir`, `actuator`, `start`, `stop`, `steps`, `velocity` | `start`, `stop`, `steps`, `velocity` | no (acquisition) |
-| [MonoZeroOrderDevice](devices/README-mono-zero-order.md) | `device_concrete/mono_zero_order.py` | `alpha_pv`, `beta_pv`, `theta_pv`, `watchdog_pv`, `pause_pv`, `mode` (`stddev`/`spread`/`reference`), `in_position_band`, `poll_period`, `stable_reads`, `timeout`, `log_every`, `pv_read_timeout`, `read_retry_count`, `max_consecutive_read_failures`, `reference` | same as config keys (top level or under `options`) | no (wait-only) |
-| [WaitConditionDevice](devices/README-wait-condition.md) | `device_concrete/wait_condition.py` | `pv`, `value`, `condition` (`eq`, `ne`, `gt`, `ge`, `lt`, `le` and aliases), `poll_period`, `timeout`, `pv_read_timeout`, `read_retry_count`, `max_consecutive_read_failures`, `log_every`, `watchdog_pv`, `watchdog_frequency` | same as config keys (top level or under `options`) | no (wait-only) |
+| [SimDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-sim.md) | `device_concrete/sim.py`       | `delay`, `initial_pose`                                                     | any                                    | yes      |
+| [OphydMotorDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-ophyd-motor.md) | `device_concrete/ophyd_motor.py` | `pv_prefix`                                                | `position`                             | yes      |
+| [ActuatorDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-actuator.md) | `device_concrete/actuator.py` | `config` (kiwi-scan `ActuatorConfig`)                              | `position`                             | yes      |
+| [HexapodDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-hexapod.md) | `device_concrete/hexapod.py` | `config.axes.{Tx,Ty,Tz,Rx,Ry,Rz}` (ActuatorConfig each), `config.enable_coordinated`, `config.run_after_pv`, `config.run_after_value` | `Tx`…`Rz` (all when coordinated, else exactly one) | yes |
+| [SequenceDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-sequence.md) | `device_concrete/sequence.py` | `sequence.<step>.{pv, value, queue_delay, desired_pv}`             | `<step>` value overrides               | yes      |
+| [ToggleDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-toggle.md) | `device_concrete/toggle.py` | `readback_pv`, `setpoint`, `toggle_pv`, `toggle_val`                     | `setpoint`                             | yes      |
+| [ScanDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-scan.md) | `device_concrete/scan.py`    | `scantype`, `config`, `replacements`, `data_dir`, `actuator`, `start`, `stop`, `steps`, `velocity` | `start`, `stop`, `steps`, `velocity` | no (acquisition) |
+| [MonoZeroOrderDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-mono-zero-order.md) | `device_concrete/mono_zero_order.py` | `alpha_pv`, `beta_pv`, `theta_pv`, `watchdog_pv`, `pause_pv`, `mode` (`stddev`/`spread`/`reference`), `in_position_band`, `poll_period`, `stable_reads`, `timeout`, `log_every`, `pv_read_timeout`, `read_retry_count`, `max_consecutive_read_failures`, `reference` | same as config keys (top level or under `options`) | no (wait-only) |
+| [WaitConditionDevice](https://github.com/hz-b/seq-quince/blob/master/docs/devices/README-wait-condition.md) | `device_concrete/wait_condition.py` | `pv`, `value`, `condition` (`eq`, `ne`, `gt`, `ge`, `lt`, `le` and aliases), `poll_period`, `timeout`, `pv_read_timeout`, `read_retry_count`, `max_consecutive_read_failures`, `log_every`, `watchdog_pv`, `watchdog_frequency` | same as config keys (top level or under `options`) | no (wait-only) |
 
 ## Capabilities
 
@@ -87,5 +87,5 @@ using the supplied replacements. Device-level `replacements` are used by
 
 ## Resource ownership
 
-See [Device resource lifecycle](resource-lifecycle.md) for stop versus close,
+See [Device resource lifecycle](https://github.com/hz-b/seq-quince/blob/master/docs/resource-lifecycle.md) for stop versus close,
 runner ownership, cancellation, deferred disposal, and extension requirements.

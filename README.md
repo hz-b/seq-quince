@@ -37,7 +37,7 @@ pip install -e .
 | Command | Purpose |
 |---------|---------|
 | `scheduler_runner` | Run a preset (`--config`, `--preset`, `--loop`, `--delay`, `--snapshot`, `--replace`) |
-| `device_runner` | Run one device from a preset; see [device runner](docs/device_runner.md). |
+| `device_runner` | Run one device from a preset; see [device runner](https://github.com/hz-b/seq-quince/blob/master/docs/device_runner.md). |
 
 Example:
 
@@ -47,7 +47,7 @@ scheduler_runner --config u171dcm1 --preset branch --replace BL=U171
 
 ## Configuration
 
-See [docs/devices.md](docs/devices.md) and [docs/devices](docs/devices) for configuration details.
+See [docs/devices.md](https://github.com/hz-b/seq-quince/blob/master/docs/devices.md) and [docs/devices](https://github.com/hz-b/seq-quince/tree/master/docs/devices) for configuration details.
 
 ```yaml
 # beamline.yaml
@@ -82,7 +82,7 @@ Environment variables used by the code:
 | `SCAN_CONFIG_DIR`      | kiwi-scan config directory for `ScanDevice`                     |
 | `SCAN_DATA_DIR`        | Output directory for `ScanDevice` scans                         |
 
-See [docs/devices.md](docs/devices.md) for the built-in device types and their configuration keys.
+See [docs/devices.md](https://github.com/hz-b/seq-quince/blob/master/docs/devices.md) for the built-in device types and their configuration keys.
 
 ## Development
 
@@ -99,4 +99,4 @@ make tag       # create git tag
 ```
 ## License
 
-MIT – see [LICENSE](LICENSE).
+MIT – see [LICENSE](https://github.com/hz-b/seq-quince/blob/master/LICENSE).
