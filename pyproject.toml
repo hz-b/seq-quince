@@ -14,7 +14,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 # license = { text = "MIT" } # TODO: license-files = ["LICENSE"] for setuptools>=77 (Python >= 3.9)
 authors = [
-  { name = "Andreas Balzer" },
+  { name = "Helmholtz-Zentrum Berlin" }
 ]
 keywords = [
   "epics",
@@ -24,6 +24,8 @@ keywords = [
   "control-system",
   "scheduler",
   "sequence",
+  "data-acquisition",
+  "scan",
   "automation",
   "yaml",
 ]
@@ -42,6 +44,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Information Analysis",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
