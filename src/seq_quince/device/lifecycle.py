@@ -180,10 +180,14 @@ class MotionState:
     async def _observe(self) -> None:
         try:
             while True:
-                self.busy = bool(await run_blocking(self.owner, self.checker))
                 # An abandoned worker may not have dispatched its move yet.
                 # Sample again after all such work, even if hardware is idle now.
-                self.busy = self.busy or has_pending_work(self.owner)
+                # Work pending before the sample can finish while the sample is
+                # in flight, so an idle result is only accepted when no work was
+                # pending before the sample started or after it returned.
+                pending = has_pending_work(self.owner)
+                busy = bool(await run_blocking(self.owner, self.checker))
+                self.busy = busy or pending or has_pending_work(self.owner)
                 if not self.busy:
                     return
                 await asyncio.sleep(0.05)
