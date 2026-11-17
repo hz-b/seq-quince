@@ -23,7 +23,7 @@ from seq_quince.device.device_abs import DeviceABC
 from seq_quince.device.factory import DeviceFactory
 from seq_quince.device.lifecycle import DeviceScope, own_device
 from seq_quince.scheduler import Scheduler
-from seq_quince.sequence import MoveStep
+from seq_quince.sequence import MoveStep, split_step_options
 from seq_quince.tools import get_scheduler_config_dir, merge_replacements
 
 logger = logging.getLogger(__name__)
@@ -126,11 +126,12 @@ def create_device_step(config_manager: SchedulerConfigManager, device_name: str,
     if len(matches) > 1:
         raise ValueError(f"Device '{device_name}' is configured more than once")
     device_config = deepcopy(dict(matches[0]))
-    selected_pose = deepcopy(dict(pose))
+    selected_pose, rollback = split_step_options(device_name, deepcopy(dict(pose)))
     merge_replacements(device_config, config_manager.replacements)
     device = DeviceFactory.create(device_config)
     own_device(device)
-    return MoveStep(device, selected_pose, group_id=0, description=device_name)
+    return MoveStep(device, selected_pose, group_id=0, description=device_name,
+                    rollback=rollback)
 
 async def run_device_preset(config_manager: SchedulerConfigManager, device_name: str, preset: str) -> None:
     """

@@ -66,10 +66,10 @@ class SchedulerSafetyTests(CoreTestCase):
             broken.process.side_effect = fail
             prior.process.side_effect = move_prior
             scheduler = Scheduler([
-                MoveStep(prior, {"position": 1}, 0),
-                MoveStep(active, {"position": 2}, 1),
-                MoveStep(broken, {}, 1),
-                MoveStep(later, {}, 2),
+                MoveStep(prior, {"position": 1}, 0, rollback=True),
+                MoveStep(active, {"position": 2}, 1, rollback=True),
+                MoveStep(broken, {}, 1, rollback=True),
+                MoveStep(later, {}, 2, rollback=True),
             ], cleanup_timeout=0.1)
             with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError) as caught:
                 await asyncio.wait_for(scheduler.run(), 1)
@@ -111,9 +111,9 @@ class SchedulerSafetyTests(CoreTestCase):
             unsupported.process.side_effect = no_rollback
             broken.process.side_effect = fail
             scheduler = Scheduler([
-                MoveStep(completed, {"position": 1}, 0),
-                MoveStep(unsupported, {"position": 2}, 0),
-                MoveStep(broken, {}, 0),
+                MoveStep(completed, {"position": 1}, 0, rollback=True),
+                MoveStep(unsupported, {"position": 2}, 0, rollback=True),
+                MoveStep(broken, {}, 0, rollback=True),
             ])
             with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError) as caught:
                 await scheduler.run()
@@ -155,9 +155,9 @@ class SchedulerSafetyTests(CoreTestCase):
             active.stop.side_effect = stop
             prior.process.side_effect = rollback
             scheduler = Scheduler([
-                MoveStep(prior, {"position": 1}, 0),
-                MoveStep(active, {"position": 2}, 1),
-                MoveStep(later, {}, 2),
+                MoveStep(prior, {"position": 1}, 0, rollback=True),
+                MoveStep(active, {"position": 2}, 1, rollback=True),
+                MoveStep(later, {}, 2, rollback=True),
             ], cleanup_timeout=0.1)
             running = asyncio.create_task(scheduler.run())
             await asyncio.wait_for(started.wait(), 1)
@@ -209,7 +209,7 @@ class SchedulerSafetyTests(CoreTestCase):
             first.stop.side_effect = OSError("stop failed")
             second.stop.side_effect = stop_second
             scheduler = Scheduler([
-                MoveStep(first, {}, 0), MoveStep(second, {}, 0), MoveStep(broken, {}, 0),
+                MoveStep(first, {}, 0, rollback=True), MoveStep(second, {}, 0, rollback=True), MoveStep(broken, {}, 0, rollback=True),
             ], cleanup_timeout=0.1)
             with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError) as caught:
                 await asyncio.wait_for(scheduler.run(), 1)
@@ -253,10 +253,10 @@ class SchedulerSafetyTests(CoreTestCase):
             motor.process.side_effect = process
             broken.process.side_effect = fail
             scheduler = Scheduler([
-                MoveStep(motor, {"position": 1}, 0),
-                MoveStep(motor, {"position": 2}, 1),
-                MoveStep(broken, {}, 1),
-                MoveStep(later, {}, 2),
+                MoveStep(motor, {"position": 1}, 0, rollback=True),
+                MoveStep(motor, {"position": 2}, 1, rollback=True),
+                MoveStep(broken, {}, 1, rollback=True),
+                MoveStep(later, {}, 2, rollback=True),
             ], cleanup_timeout=0.01)
             try:
                 with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError) as caught:
@@ -309,9 +309,9 @@ class SchedulerSafetyTests(CoreTestCase):
             motor.stop.side_effect = stop
             broken.process.side_effect = fail
             scheduler = Scheduler([
-                MoveStep(motor, {"position": 1}, 0),
-                MoveStep(motor, {"position": 2}, 1),
-                MoveStep(broken, {}, 1),
+                MoveStep(motor, {"position": 1}, 0, rollback=True),
+                MoveStep(motor, {"position": 2}, 1, rollback=True),
+                MoveStep(broken, {}, 1, rollback=True),
             ], cleanup_timeout=0.1)
             try:
                 with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError) as caught:
@@ -351,7 +351,7 @@ class SchedulerSafetyTests(CoreTestCase):
             active.process.side_effect = process
             active.stop.side_effect = stop
             scheduler = Scheduler([
-                MoveStep(active, {}, 0), MoveStep(later, {}, 1),
+                MoveStep(active, {}, 0, rollback=True), MoveStep(later, {}, 1, rollback=True),
             ], cleanup_timeout=0.1)
             running = asyncio.create_task(scheduler.run())
             try:
@@ -400,7 +400,7 @@ class SchedulerSafetyTests(CoreTestCase):
             active.stop.side_effect = resist_cancellation
             broken.process.side_effect = fail
             scheduler = Scheduler([
-                MoveStep(active, {}, 0), MoveStep(broken, {}, 0),
+                MoveStep(active, {}, 0, rollback=True), MoveStep(broken, {}, 0, rollback=True),
             ], cleanup_timeout=0.01)
             try:
                 with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError) as caught:
@@ -426,7 +426,7 @@ class SchedulerSafetyTests(CoreTestCase):
 
         motor.process.side_effect = process
         scheduler = Scheduler([
-            MoveStep(motor, {"position": 1}, 0), MoveStep(motor, {"position": 2}, 1),
+            MoveStep(motor, {"position": 1}, 0, rollback=True), MoveStep(motor, {"position": 2}, 1, rollback=True),
         ], cleanup_timeout=0.01)
         with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError) as caught:
             self.run_async(scheduler.run())
@@ -464,7 +464,7 @@ class SchedulerSafetyTests(CoreTestCase):
             active.process.side_effect = process
             active.stop.side_effect = stop
             scheduler = Scheduler([
-                MoveStep(active, {}, 0), MoveStep(later, {}, 1),
+                MoveStep(active, {}, 0, rollback=True), MoveStep(later, {}, 1, rollback=True),
             ], step_timeout=0.001, cleanup_timeout=0.1)
             with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError) as caught:
                 await asyncio.wait_for(scheduler.run(), 1)
@@ -506,8 +506,8 @@ class SchedulerSafetyTests(CoreTestCase):
             active.stop.side_effect = stop
             broken.process.side_effect = fail
             scheduler = Scheduler([
-                MoveStep(active, {}, 0), MoveStep(broken, {}, 0),
-                MoveStep(later, {}, 1),
+                MoveStep(active, {}, 0, rollback=True), MoveStep(broken, {}, 0, rollback=True),
+                MoveStep(later, {}, 1, rollback=True),
             ], cleanup_timeout=0.1)
             running = asyncio.create_task(scheduler.run())
             try:
@@ -548,9 +548,9 @@ class SchedulerSafetyTests(CoreTestCase):
             hanging.process.side_effect = rollback_hangs
             broken.process.side_effect = failure
             scheduler = Scheduler([
-                MoveStep(first, {"position": 1}, 0),
-                MoveStep(hanging, {"position": 2}, 1),
-                MoveStep(broken, {}, 2),
+                MoveStep(first, {"position": 1}, 0, rollback=True),
+                MoveStep(hanging, {"position": 2}, 1, rollback=True),
+                MoveStep(broken, {}, 2, rollback=True),
             ], cleanup_timeout=0.01)
             with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError) as caught:
                 await asyncio.wait_for(scheduler.run(), 1)
@@ -575,9 +575,9 @@ class SchedulerSafetyTests(CoreTestCase):
         cancelled.process.side_effect = process
         broken.process.side_effect = failure
         scheduler = Scheduler([
-            MoveStep(first, {"position": 1}, 0),
-            MoveStep(cancelled, {"position": 2}, 1),
-            MoveStep(broken, {}, 2),
+            MoveStep(first, {"position": 1}, 0, rollback=True),
+            MoveStep(cancelled, {"position": 2}, 1, rollback=True),
+            MoveStep(broken, {}, 2, rollback=True),
         ], cleanup_timeout=0.1)
         with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError) as caught:
             self.run_async(scheduler.run())
@@ -607,8 +607,8 @@ class SchedulerSafetyTests(CoreTestCase):
 
         motor.process.side_effect = process
         scheduler = Scheduler([
-            MoveStep(motor, {"position": 1}, 0),
-            MoveStep(motor, {"position": 2}, 1),
+            MoveStep(motor, {"position": 1}, 0, rollback=True),
+            MoveStep(motor, {"position": 2}, 1, rollback=True),
         ], cleanup_timeout=0.1)
         with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError) as caught:
             self.run_async(scheduler.run())
@@ -632,8 +632,8 @@ class SchedulerSafetyTests(CoreTestCase):
 
         motor.process.side_effect = process
         scheduler = Scheduler([
-            MoveStep(motor, {"position": 1}, 0),
-            MoveStep(motor, {"position": 2}, 1),
+            MoveStep(motor, {"position": 1}, 0, rollback=True),
+            MoveStep(motor, {"position": 2}, 1, rollback=True),
         ], cleanup_timeout=0.1)
         with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError) as caught:
             self.run_async(scheduler.run())
@@ -677,9 +677,9 @@ class SchedulerSafetyTests(CoreTestCase):
             second.process.side_effect = process_second
             broken.process.side_effect = fail
             scheduler = Scheduler([
-                MoveStep(first, {"position": 1}, 0),
-                MoveStep(second, {"position": 2}, 0),
-                MoveStep(broken, {}, 0),
+                MoveStep(first, {"position": 1}, 0, rollback=True),
+                MoveStep(second, {"position": 2}, 0, rollback=True),
+                MoveStep(broken, {}, 0, rollback=True),
             ], cleanup_timeout=0.1)
             with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError) as caught:
                 await scheduler.run()

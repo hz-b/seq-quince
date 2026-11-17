@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, List, Mapping, Tuple
 
 from seq_quince.device.device_abs import DeviceABC
 
 
 class SequenceError(RuntimeError):
     """Raised if the builder detects an impossible or ill-formed request."""
+
+
+#: Preset entry key that switches rollback on for one step. It is removed
+#: from the entry before the rest becomes the pose passed to ``process()``.
+ROLLBACK_KEY = "rollback"
 
 @dataclass
 class MoveStep:
@@ -17,16 +22,38 @@ class MoveStep:
     `group_id` lets the scheduler know which steps can run in parallel.
     Steps with the same `group_id` are awaited together; `None` means
     “run immediately, then wait (barrier) before continuing”.
+
+    `rollback` opts this step in to rollback: if a later step fails, the
+    scheduler drives the device back to its pre-group snapshot. It is off by
+    default and also requires ``device.supports_rollback()``.
     """
     device: DeviceABC
     pose: Dict[str, float]
     group_id: int | None = None
     description: str = field(default_factory=str)
+    rollback: bool = False
 
     # debug output
     def __repr__(self) -> str:
         g = f"group={self.group_id}" if self.group_id is not None else "barrier"
-        return f"<MoveStep {self.device.name}→{self.pose} {g}>"
+        r = " rollback" if self.rollback else ""
+        return f"<MoveStep {self.device.name}→{self.pose} {g}{r}>"
+
+
+def split_step_options(name: str, entry: Mapping[str, Any]) -> Tuple[Dict[str, Any], bool]:
+    """
+    Split one preset entry into ``(pose, rollback)``.
+
+    ``rollback`` is read from the reserved ``rollback`` key (default False)
+    and must be a YAML boolean. The returned pose is a new dict without it.
+    """
+    pose = dict(entry)
+    rollback = pose.pop(ROLLBACK_KEY, False)
+    if not isinstance(rollback, bool):
+        raise SequenceError(
+            f"'{ROLLBACK_KEY}' for device '{name}' must be true or false, got {rollback!r}"
+        )
+    return pose, rollback
 
 
 def build_sequence(
@@ -46,6 +73,9 @@ def build_sequence(
       subsequent operations can safely assume all moves are finished.
     * if `serial` – devices go in successive groups 0,1,2,… (one at a time).
     More sophisticated YAML flags (e.g. `group:` keys) can be added later.
+
+    A preset entry may set ``rollback: true`` to opt that step in to rollback;
+    see `split_step_options()`.
     """
     if default_grouping not in {"parallel", "serial"}:
         raise ValueError("default_grouping must be 'parallel' or 'serial'")
@@ -59,7 +89,9 @@ def build_sequence(
                 dev = devices[name]
             except KeyError as exc:
                 raise SequenceError(f"Unknown device '{name}'") from exc
-            steps.append(MoveStep(dev, dict(pose), group_id=0, description=name))
+            step_pose, rollback = split_step_options(name, pose)
+            steps.append(MoveStep(dev, step_pose, group_id=0, description=name,
+                                  rollback=rollback))
         # Final barrier
         steps.append(MoveStep(device=_BarrierDevice(), pose={}, group_id=None,
                               description="BARRIER"))
@@ -70,8 +102,9 @@ def build_sequence(
     for grp_id, (name, pose) in enumerate(target.items()):
         if name not in devices:
             raise SequenceError(f"Unknown device '{name}'")
-        steps.append(MoveStep(devices[name], dict(pose), group_id=grp_id,
-                              description=name))
+        step_pose, rollback = split_step_options(name, pose)
+        steps.append(MoveStep(devices[name], step_pose, group_id=grp_id,
+                              description=name, rollback=rollback))
     # implicit barrier unnecessary, serial groups already block
     return steps
 

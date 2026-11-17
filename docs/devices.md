@@ -33,8 +33,24 @@ the type. Types are resolved by `seq_quince.device.factory.DeviceFactory` (`DEVI
 - `serial` – one group per device, executed in preset order (used by `scheduler_runner`).
 - `parallel` – all devices in group 0, followed by a barrier.
 
-`Scheduler.run()` captures a snapshot of each rollback-capable device before its group runs. If any step fails, completed
-steps are driven back to those snapshots (best effort) and `MoveError` is raised. Per-step timeouts come from
+Rollback is opt-in per step and off by default. A step is rolled back only if its preset entry sets `rollback: true`
+(`MoveStep.rollback`) **and** its device's `supports_rollback()` returns `True`. `Scheduler.run()` captures a snapshot for
+each such step before its group runs. If any step fails, all active steps are stopped, completed opted-in steps are driven
+back to their snapshots in reverse order (best effort), and `MoveError` is raised. Completed steps without `rollback: true`
+stay where they are.
+
+```yaml
+presets:
+  align:
+    m1:
+      position: 3.0
+      rollback: true     # move m1 back if a later step fails
+    shutter:
+      setpoint: 1        # rollback off (default): leave as is
+```
+
+`rollback` is reserved in preset entries: it is removed before the entry becomes the pose passed to `process()` and must
+be `true` or `false`. Per-step timeouts come from
 `device.scheduler_timeout(pose)`, falling back to the scheduler's `step_timeout`.
 
 `ScanDevice` does not support automatic rollback. 
@@ -56,7 +72,7 @@ the common `DeviceABC` interface.
 | `busy` | Report adapter-specific activity or hardware state. |
 | `await stop()` | Request the adapter's implemented stop action. |
 | `get_capability(name)` | Access an optional underlying driver or command API. |
-| `supports_rollback()` | Tell the scheduler whether to capture and replay snapshots. |
+| `supports_rollback()` | Whether this device can be rolled back at all; steps must also opt in with `rollback: true`. |
 | `scheduler_timeout(pose)` | Supply a timeout override; `None` inherits the global `step_timeout`. |
 
 ## Configuration structure

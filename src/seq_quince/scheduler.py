@@ -33,7 +33,8 @@ class Scheduler:
 
     * parallel execution per `group_id`
     * optional per-step timeout
-    * best-effort rollback on individually completed steps
+    * best-effort rollback on individually completed steps that opted in
+      (``MoveStep.rollback``, off by default)
 
     On abort, stop requests and original operations have ``cleanup_timeout``
     seconds to settle naturally. Remaining coroutines are cancelled and given
@@ -271,10 +272,18 @@ class Scheduler:
             return bool(supports_rollback())
         return True
 
+    def _rollback_enabled(self, step: MoveStep) -> bool:
+        """A step is rolled back only if it opted in and its device supports it."""
+        return step.rollback and self._supports_rollback(step.device)
+
     # --------------------------------------------------------- rollback path
     async def _rollback(self) -> None:
-        """Best-effort: drive completed devices back to their pre-run snapshot pose."""
+        """Best-effort: drive completed opted-in steps back to their pre-run snapshot pose."""
         for step in reversed(self._finished):
+            if not step.rollback:
+                log.info("Skipping rollback for %s (rollback not enabled for this step)",
+                         step.device.name)
+                continue
             if id(step.device) in self._unconfirmed:
                 log.warning("Skipping rollback for %s (stop unconfirmed)", step.device.name)
                 continue
@@ -304,9 +313,9 @@ class Scheduler:
             task.result()
 
     async def _capture_group_rollback_snapshots(self, group: Sequence[MoveStep]) -> None:
-        """Capture pre-run snapshots for rollbackable devices in the group."""
+        """Capture pre-run snapshots for steps in the group that will roll back."""
         async def _capture(step: MoveStep) -> None:
-            if not step.device.supports_rollback():
+            if not self._rollback_enabled(step):
                 return
             self._rollback_snapshots[id(step)] = await self._snapshot_device(step.device)
 

@@ -190,8 +190,21 @@ class DeviceExecutionTests(unittest.IsolatedAsyncioTestCase):
             await runner.run_device_preset(manager_for(), "mono", "home")
         self.assertEqual(final_snapshots, [{"position": 5}])
         close.assert_awaited_once_with()
-        self.assertEqual(device.snapshot.await_count, 2)
+        # Rollback is off by default: only the final snapshot, no pre-run one.
+        self.assertEqual(device.snapshot.await_count, 1)
         self.assertFalse(device.busy)
+
+    async def test_async_run_with_rollback_takes_pre_run_snapshot(self):
+        device = SimDevice("mono", {"position": 1}, delay=0)
+        device.snapshot = AsyncMock(wraps=device.snapshot)
+        device.process = AsyncMock(wraps=device.process)
+        final_snapshots, _close = capture_final_snapshot(device)
+        manager = manager_for(presets={"home": {"mono": {"position": 5, "rollback": True}}})
+        with patch.object(runner.DeviceFactory, "create", return_value=device):
+            await runner.run_device_preset(manager, "mono", "home")
+        self.assertEqual(final_snapshots, [{"position": 5}])
+        self.assertEqual(device.snapshot.await_count, 2)
+        device.process.assert_awaited_once_with({"position": 5})
 
     async def test_device_timeout_is_honored(self):
         device = SimDevice("mono", delay=60)

@@ -58,9 +58,9 @@ class SchedulerTests(CoreTestCase):
             second.process.side_effect = second_move
             last.process.side_effect = final_move
             steps = [
-                MoveStep(first, {"position": 1}, 0),
-                MoveStep(second, {"position": 2}, 0),
-                MoveStep(last, {"position": 3}, 1),
+                MoveStep(first, {"position": 1}, 0, rollback=True),
+                MoveStep(second, {"position": 2}, 0, rollback=True),
+                MoveStep(last, {"position": 3}, 1, rollback=True),
                 MoveStep(_BarrierDevice(), {}, None),
             ]
             scheduler = Scheduler(steps)
@@ -94,7 +94,7 @@ class SchedulerTests(CoreTestCase):
         first.snapshot.side_effect = first_snapshot
         second.snapshot.side_effect = second_snapshot
         first.process.side_effect = second.process.side_effect = process
-        scheduler = Scheduler([MoveStep(first, {}, 0), MoveStep(second, {}, 0)])
+        scheduler = Scheduler([MoveStep(first, {}, 0, rollback=True), MoveStep(second, {}, 0, rollback=True)])
         self.run_async(scheduler.run())
 
     def test_timeout_precedence_and_disabled_values(self):
@@ -112,7 +112,7 @@ class SchedulerTests(CoreTestCase):
                 device = Device("motor")
                 device.scheduler_timeout.return_value = device_timeout
                 pose = {"position": 1}
-                step = MoveStep(device, pose, 0)
+                step = MoveStep(device, pose, 0, rollback=True)
                 self.assertEqual(
                     Scheduler([step], step_timeout=fallback)._effective_timeout(step),
                     expected,
@@ -133,7 +133,7 @@ class SchedulerTests(CoreTestCase):
 
             device.process.side_effect = never_finishes
             scheduler = Scheduler(
-                [MoveStep(device, {"position": 1}, 0)],
+                [MoveStep(device, {"position": 1}, 0, rollback=True)],
                 step_timeout=0.001,
                 cleanup_timeout=0.01,
             )
@@ -169,9 +169,9 @@ class SchedulerTests(CoreTestCase):
         broken.process.side_effect = error
         scheduler = Scheduler(
             [
-                MoveStep(first, {"position": 1}, 0),
-                MoveStep(second, {"position": 2}, 1),
-                MoveStep(broken, {"position": 3}, 2),
+                MoveStep(first, {"position": 1}, 0, rollback=True),
+                MoveStep(second, {"position": 2}, 1, rollback=True),
+                MoveStep(broken, {"position": 3}, 2, rollback=True),
             ]
         )
         with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(
@@ -190,6 +190,40 @@ class SchedulerTests(CoreTestCase):
         )
         broken.process.assert_awaited_once_with({"position": 3})
 
+    def test_steps_without_rollback_are_neither_snapshotted_nor_rolled_back(self):
+        kept, restored, broken = Device("kept", 10), Device("restored", 20), Device("broken")
+        error = RuntimeError("later failure")
+        broken.process.side_effect = error
+        scheduler = Scheduler(
+            [
+                MoveStep(kept, {"position": 1}, 0),
+                MoveStep(restored, {"position": 2}, 1, rollback=True),
+                MoveStep(broken, {}, 2),
+            ]
+        )
+        with self.assertLogs("seq_quince.scheduler", level="INFO") as logs, self.assertRaises(
+            MoveError
+        ) as caught:
+            self.run_async(scheduler.run())
+        self.assertIs(caught.exception.__cause__, error)
+        kept.snapshot.assert_not_awaited()
+        broken.snapshot.assert_not_awaited()
+        kept.process.assert_awaited_once_with({"position": 1})
+        self.assertEqual(
+            restored.process.await_args_list, [call({"position": 2}), call({"position": 20})]
+        )
+        broken.stop.assert_awaited_once_with()
+        self.assertIn("Skipping rollback for kept (rollback not enabled", "\n".join(logs.output))
+
+    def test_default_steps_are_not_rolled_back(self):
+        first, broken = Device("first", 10), Device("broken")
+        broken.process.side_effect = RuntimeError("failed")
+        scheduler = Scheduler([MoveStep(first, {"position": 1}, 0), MoveStep(broken, {}, 1)])
+        with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError):
+            self.run_async(scheduler.run())
+        first.snapshot.assert_not_awaited()
+        first.process.assert_awaited_once_with({"position": 1})
+
     def test_rollback_failure_is_logged_and_remaining_rollback_still_runs(self):
         first, second, broken = (
             Device("first", 10),
@@ -201,9 +235,9 @@ class SchedulerTests(CoreTestCase):
         broken.process.side_effect = original_error
         scheduler = Scheduler(
             [
-                MoveStep(first, {"position": 1}, 0),
-                MoveStep(second, {"position": 2}, 1),
-                MoveStep(broken, {}, 2),
+                MoveStep(first, {"position": 1}, 0, rollback=True),
+                MoveStep(second, {"position": 2}, 1, rollback=True),
+                MoveStep(broken, {}, 2, rollback=True),
             ]
         )
         with self.assertLogs(
@@ -222,7 +256,7 @@ class SchedulerTests(CoreTestCase):
         wait.supports_rollback.return_value = False
         broken.process.side_effect = RuntimeError("failed")
         scheduler = Scheduler(
-            [MoveStep(wait, {"value": 1}, 0), MoveStep(broken, {}, 1)]
+            [MoveStep(wait, {"value": 1}, 0, rollback=True), MoveStep(broken, {}, 1, rollback=True)]
         )
         with self.assertLogs(
             "seq_quince.scheduler", level="INFO"
@@ -237,7 +271,7 @@ class SchedulerTests(CoreTestCase):
         first.supports_rollback.side_effect = [False, True]
         broken.process.side_effect = RuntimeError("failed")
         scheduler = Scheduler(
-            [MoveStep(first, {"position": 1}, 0), MoveStep(broken, {}, 1)]
+            [MoveStep(first, {"position": 1}, 0, rollback=True), MoveStep(broken, {}, 1, rollback=True)]
         )
         with self.assertLogs(
             "seq_quince.scheduler", level="WARNING"
@@ -255,7 +289,7 @@ class SchedulerTests(CoreTestCase):
         with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(
             MoveError
         ) as caught:
-            self.run_async(Scheduler([MoveStep(device, {"position": 1}, 0)]).run())
+            self.run_async(Scheduler([MoveStep(device, {"position": 1}, 0, rollback=True)]).run())
         self.assertIs(caught.exception.__cause__, error)
         device.process.assert_not_awaited()
 
@@ -263,9 +297,9 @@ class SchedulerTests(CoreTestCase):
         first, second = Device("first", 1), Device("second", 2)
         scheduler = Scheduler(
             [
-                MoveStep(first, {}, 0),
-                MoveStep(first, {}, 1),
-                MoveStep(second, {}, 1),
+                MoveStep(first, {}, 0, rollback=True),
+                MoveStep(first, {}, 1, rollback=True),
+                MoveStep(second, {}, 1, rollback=True),
                 MoveStep(_BarrierDevice(), {}, None),
             ]
         )

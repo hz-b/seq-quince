@@ -4,7 +4,8 @@
 
 Devices (motors, actuators, hexapods, PV sequences, scans, wait conditions, …) are declared in a
 `beamline.yaml`. Named **presets** map devices to target poses. The scheduler turns a preset into a sequence of move
-steps, runs them serially or in parallel groups, and rolls completed steps back to their pre-run snapshot if a step fails.
+steps, runs them serially or in parallel groups, and, for steps that opt in with `rollback: true`, rolls completed steps back to
+their pre-run snapshot if a step fails.
 
 
 ## Overview of Features
@@ -15,7 +16,7 @@ steps, runs them serially or in parallel groups, and rolls completed steps back 
 -   **Device factory** – devices are created from config by their `type:` key; custom types can be registered at runtime.
 -   **Custom device extensions** — Load external device modules and packages via SEQ_QUINCE_DEVICE_PATH, with explicit registration through DEVICE_CLASSES.
 -   **Sequences** – presets are converted into `MoveStep` lists with `serial` or `parallel` grouping and barriers.
--   **Async scheduler** – concurrent execution per group, optional per-step timeouts, best-effort rollback on failure.
+-   **Async scheduler** – concurrent execution per group, optional per-step timeouts, opt-in per-step best-effort rollback on failure.
 -   **Snapshots** – current device read-backs can be saved as a new preset (`presets.yaml`).
 -   **kiwi-scan integration** – `ScanDevice` runs any kiwi-scan scan type, `ActuatorDevice`/`HexapodDevice` use kiwi-scan actuators.
 

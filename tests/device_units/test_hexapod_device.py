@@ -447,8 +447,8 @@ class HexapodDeviceTests(DeviceTestCase):
 
             driver.run_move.side_effect = move
         scheduler = Scheduler([
-            MoveStep(device, {"Ty": 20.0}, 0),
-            MoveStep(self._failing_device(), {}, 1),
+            MoveStep(device, {"Ty": 20.0}, 0, rollback=True),
+            MoveStep(self._failing_device(), {}, 1, rollback=True),
         ])
         with self.assertLogs("seq_quince.scheduler", level="ERROR"), self.assertRaises(MoveError):
             self.run_async(scheduler.run())
@@ -464,8 +464,8 @@ class HexapodDeviceTests(DeviceTestCase):
         device = hexapod.HexapodDevice("hex", self.config)
         self.drivers[1].run_move.side_effect = [None, RuntimeError("restore failed")]
         scheduler = Scheduler([
-            MoveStep(device, {"Ty": 20.0}, 0),
-            MoveStep(self._failing_device(), {}, 1),
+            MoveStep(device, {"Ty": 20.0}, 0, rollback=True),
+            MoveStep(self._failing_device(), {}, 1, rollback=True),
         ])
         with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError):
             self.run_async(scheduler.run())
@@ -486,8 +486,8 @@ class HexapodDeviceTests(DeviceTestCase):
         self.drivers[0].run_move.side_effect = restore
         self.drivers[0].stop.side_effect = release.set
         scheduler = Scheduler([
-            MoveStep(device, {"Ty": 20.0}, 0),
-            MoveStep(self._failing_device(), {}, 1),
+            MoveStep(device, {"Ty": 20.0}, 0, rollback=True),
+            MoveStep(self._failing_device(), {}, 1, rollback=True),
         ], cleanup_timeout=0.02)
         try:
             with self.assertLogs("seq_quince.scheduler", level="ERROR") as logs, self.assertRaises(MoveError):
@@ -504,8 +504,8 @@ class HexapodDeviceTests(DeviceTestCase):
     def test_caller_cancellation_preserves_rollback_recovery(self):
         device = hexapod.HexapodDevice("hex", self.config)
         scheduler = Scheduler([
-            MoveStep(device, {"Ty": 20.0}, 0),
-            MoveStep(self._failing_device(), {}, 1),
+            MoveStep(device, {"Ty": 20.0}, 0, rollback=True),
+            MoveStep(self._failing_device(), {}, 1, rollback=True),
         ])
 
         async def scenario():

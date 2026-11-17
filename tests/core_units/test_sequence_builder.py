@@ -62,6 +62,39 @@ class SequenceBuilderTests(CoreTestCase):
                 if grouping == "parallel":
                     self.assertIsInstance(caught.exception.__cause__, KeyError)
 
+    def test_rollback_is_off_by_default_and_opted_in_per_entry(self):
+        target = {"y": {"position": 2, "rollback": True}, "x": {"position": 1}}
+        for grouping in ("parallel", "serial"):
+            with self.subTest(grouping=grouping):
+                steps = build_sequence(self.devices, target, default_grouping=grouping)
+                by_name = {s.description: s for s in steps if s.group_id is not None}
+                self.assertTrue(by_name["y"].rollback)
+                self.assertFalse(by_name["x"].rollback)
+                # The option is not part of the pose passed to process().
+                self.assertEqual(by_name["y"].pose, {"position": 2})
+                if grouping == "parallel":
+                    self.assertFalse(steps[-1].rollback)  # barrier
+        self.assertEqual(target["y"], {"position": 2, "rollback": True})
+
+    def test_rollback_false_is_accepted_and_stripped(self):
+        steps = build_sequence(
+            self.devices, {"x": {"position": 1, "rollback": False}}, default_grouping="serial"
+        )
+        self.assertFalse(steps[0].rollback)
+        self.assertEqual(steps[0].pose, {"position": 1})
+
+    def test_non_boolean_rollback_is_rejected(self):
+        for value in ("yes", 1, None):
+            for grouping in ("parallel", "serial"):
+                with self.subTest(value=value, grouping=grouping), self.assertRaisesRegex(
+                    SequenceError, "'rollback' for device 'x'"
+                ):
+                    build_sequence(
+                        self.devices,
+                        {"x": {"position": 1, "rollback": value}},
+                        default_grouping=grouping,
+                    )
+
     def test_move_step_description_and_repr(self):
         step = MoveStep(self.devices["x"], {"position": 1}, group_id=3)
         self.assertEqual(step.description, "")
@@ -69,6 +102,8 @@ class SequenceBuilderTests(CoreTestCase):
         self.assertIn("group=3", repr(step))
         self.assertIn("{'position': 1}", repr(step))
         self.assertIn("barrier", repr(MoveStep(self.devices["x"], {})))
+        self.assertNotIn("rollback", repr(step))
+        self.assertIn("rollback", repr(MoveStep(self.devices["x"], {}, 0, rollback=True)))
 
     def test_barrier_implements_no_op_device_contract(self):
         barrier = _BarrierDevice.from_config_dict({})

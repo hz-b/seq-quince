@@ -302,7 +302,7 @@ class ScanDeviceTests(DeviceTestCase):
         previous = device.get_capability("scan")
 
         async def exercise():
-            scheduler = Scheduler([MoveStep(device, {"start": 0}, group_id=0)])
+            scheduler = Scheduler([MoveStep(device, {"start": 0}, group_id=0, rollback=True)])
             await asyncio.wait_for(scheduler.run(), timeout=1)
             await asyncio.wait_for(device.close(), timeout=1)
 
@@ -317,7 +317,7 @@ class ScanDeviceTests(DeviceTestCase):
         expected = {"start": 1, "stop": 2, "steps": 4, "velocity": 0.5}
         self.assertFalse(device.supports_rollback())
         self.assertEqual(self.run_async(device.snapshot()), expected)
-        scheduler = Scheduler([MoveStep(device, {}, 0)])
+        scheduler = Scheduler([MoveStep(device, {}, 0, rollback=True)])
         self.assertEqual(self.run_async(scheduler.snapshot()), {"scan": expected})
         device.get_capability("scan").execute.assert_not_called()
 
@@ -338,10 +338,10 @@ class ScanDeviceTests(DeviceTestCase):
         failure = RuntimeError("later step failed")
         self.patch(broken, "process", AsyncMock(side_effect=failure))
         scheduler = Scheduler([
-            MoveStep(first, {"position": 1}, 0),
-            MoveStep(device, {}, 1),
-            MoveStep(second, {"position": 2}, 2),
-            MoveStep(broken, {}, 3),
+            MoveStep(first, {"position": 1}, 0, rollback=True),
+            MoveStep(device, {}, 1, rollback=True),
+            MoveStep(second, {"position": 2}, 2, rollback=True),
+            MoveStep(broken, {}, 3, rollback=True),
         ], cleanup_timeout=0.1)
 
         async def run_owned_scan():
@@ -396,7 +396,7 @@ class ScanDeviceTests(DeviceTestCase):
                 self.assertFalse(instance.busy)
 
             instance.close.side_effect = close
-            steps = [MoveStep(device, {}, 0)]
+            steps = [MoveStep(device, {}, 0, rollback=True)]
             if not cancel:
                 broken = SimDevice("broken", delay=0)
 
@@ -405,7 +405,7 @@ class ScanDeviceTests(DeviceTestCase):
                     raise failure
 
                 self.patch(broken, "process", AsyncMock(side_effect=fail))
-                steps.append(MoveStep(broken, {}, 0))
+                steps.append(MoveStep(broken, {}, 0, rollback=True))
             scheduler = Scheduler(steps, cleanup_timeout=0.1)
             with self.assertLogs("seq_quince.scheduler", level="WARNING"):
                 async def run_owned_scan():

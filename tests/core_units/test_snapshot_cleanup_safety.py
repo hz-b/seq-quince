@@ -65,7 +65,7 @@ class SnapshotCleanupSafetyTests(CoreTestCase):
     def check_failure(self, rollback_capture, cancellation=False):
         failure = asyncio.CancelledError() if cancellation else ValueError("snapshot failed")
         device = ExternalSnapshotDevice(failure)
-        scheduler = Scheduler([MoveStep(device, {}, group_id=0)], cleanup_timeout=0.01)
+        scheduler = Scheduler([MoveStep(device, {}, group_id=0, rollback=True)], cleanup_timeout=0.01)
 
         async def exercise():
             expected = asyncio.CancelledError if cancellation else (

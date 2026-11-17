@@ -130,7 +130,7 @@ def set_lifecycle_context(context: LifecycleContext) -> LifecycleContext:
     before devices are built: a device keeps the state it was given, and a
     DeviceScope keeps the context it was created in.
     """
-    global _context  # pylint: disable=global-statement
+    global _context  
     previous, _context = _context, context
     return previous
 
