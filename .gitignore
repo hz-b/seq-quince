@@ -9,6 +9,7 @@ __pycache__/
 # hg
 .hgignore
 .hg
+.hgtags
 
 # Distribution / packaging
 .Python

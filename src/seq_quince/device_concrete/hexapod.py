@@ -9,16 +9,16 @@ from kiwi_scan.datamodels import ActuatorConfig
 
 from seq_quince.device.device_abs import DeviceABC, get_param
 from seq_quince.device.lifecycle import (
+    MotionBusyMixin,
     MotionState,
     ensure_open,
-    has_pending_work,
     run_blocking,
     track_resource,
 )
 
 logger = logging.getLogger(__name__)
 
-class HexapodDevice(DeviceABC):
+class HexapodDevice(MotionBusyMixin, DeviceABC):
     """
     Concrete DeviceABC for a 6‐degree‐of‐freedom hexapod.  Supports an optional
     “coordinated move” feature: if enabled, it writes a user‐specified value to
@@ -96,7 +96,8 @@ class HexapodDevice(DeviceABC):
         self._validate_pose(pose)
 
         self._stop_requested = False
-        try:
+        # One readiness sample follows the whole pose, not each sub-move.
+        async with self._motion.commands():
             if self._run_after_pv:
                 await run_blocking(self, self._run_after_pv.put, self._run_after_value)
             self._check_stop_requested()
@@ -113,10 +114,6 @@ class HexapodDevice(DeviceABC):
                     if axis in pose:
                         await run_blocking(self, self._actuators[axis].run_move, pose[axis], True)
                         self._check_stop_requested()
-            await self._motion.refresh()
-        except BaseException:
-            self._motion.watch()
-            raise
 
     def _validate_pose(self, pose: Dict[str, float]) -> None:
         # --- Validate the incoming pose dict -------------------------------
@@ -176,19 +173,12 @@ class HexapodDevice(DeviceABC):
         # is_ready() can make a Channel Access fallback read, even with monitors.
         return any(not act.is_ready() for act in self._actuators.values())
 
-    @property
-    def busy(self) -> bool:
-        """
-        Cached motion/readiness state, including outstanding executor work.
-        """
-        return self._motion.busy or has_pending_work(self)
-
     async def stop(self) -> None:
         """
         Best‐effort immediate stop of all six actuators.  Leaves each in a recoverable state.
         """
         self._stop_requested = True
-        try:
+        async with self._motion.commands():
             results = await asyncio.gather(*(
                 run_blocking(self, actuator.stop) for actuator in self._actuators.values()
             ), return_exceptions=True)
@@ -199,10 +189,6 @@ class HexapodDevice(DeviceABC):
             if failures:
                 detail = "; ".join(f"{axis}: {error}" for axis, error in failures)
                 raise RuntimeError(f"Hexapod stop failed ({detail})") from failures[0][1]
-            await self._motion.refresh()
-        except BaseException:
-            self._motion.watch()
-            raise
 
     def get_capability(self, name: str) -> Optional[Any]:
         if name == "actuators":

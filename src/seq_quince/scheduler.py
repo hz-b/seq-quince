@@ -210,10 +210,10 @@ class Scheduler:
                 self._mark_unconfirmed(device, "operation failed; internal work may remain")
         for task, device in stops.items():
             if not task.done() or task.cancelled():
-                self._mark_unconfirmed(device, "stop request did not settle")
+                self._mark_unconfirmed(device, "stop request did not settle", hold=True)
             elif task.exception() is not None:
                 log.error("Stop failed for %s: %s", device.name, task.exception())
-                self._mark_unconfirmed(device, "stop request failed")
+                self._mark_unconfirmed(device, "stop request failed", hold=True)
         # Check before coroutine cancellation: some devices clear busy in finally
         # while their executor worker is still running.
         for device in devices.values():
@@ -222,15 +222,16 @@ class Scheduler:
                     self._mark_unconfirmed(device, "device is still busy")
             except Exception:
                 log.exception("Could not read busy state for %s", device.name)
-                self._mark_unconfirmed(device, "busy state unavailable")
+                self._mark_unconfirmed(device, "busy state unavailable", hold=True)
         await self._cancel_and_settle(pending)
         for task in set(operations) | set(stops):
             if task.done() and not task.cancelled():
                 task.exception()  # Retrieve sibling failures as well as the first.
 
-    def _mark_unconfirmed(self, device: DeviceABC, reason: str) -> None:
+    def _mark_unconfirmed(self, device: DeviceABC, reason: str, *, hold: bool = False) -> None:
+        """``hold``: disposal must not close the device, see mark_unconfirmed()."""
         self._unconfirmed[id(device)] = device
-        mark_unconfirmed(device, reason)
+        mark_unconfirmed(device, reason, hold=hold)
         log.error("Device %s not confirmed stopped (%s); skipping its rollback", device.name, reason)
 
     async def _cancel_and_settle(self, pending: Set[asyncio.Task]) -> None:

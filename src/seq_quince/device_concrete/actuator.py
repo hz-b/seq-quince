@@ -8,16 +8,16 @@ from kiwi_scan.datamodels import ActuatorConfig
 
 from seq_quince.device.device_abs import DeviceABC, get_param
 from seq_quince.device.lifecycle import (
+    MotionBusyMixin,
     MotionState,
     ensure_open,
-    has_pending_work,
     run_blocking,
     track_resource,
 )
 
 logger = logging.getLogger(__name__)
 
-class ActuatorDevice(DeviceABC):
+class ActuatorDevice(MotionBusyMixin, DeviceABC):
     _cleanup_tracks_work = True
 
     def __init__(self, name: str, cfg: Mapping[str, Any]) -> None:
@@ -54,12 +54,7 @@ class ActuatorDevice(DeviceABC):
         if position is None:
             raise ValueError("Pose must have a 'position' key")
         logger.info(f"actuator position: {position}")
-        try:
-            await run_blocking(self, self._actuator.run_move, position, True)
-        except BaseException:
-            self._motion.watch()
-            raise
-        await self._motion.refresh()
+        await self._motion.command(self._actuator.run_move, position, True)
 
     async def snapshot(self) -> Dict[str, float]:
         ensure_open(self)
@@ -69,18 +64,9 @@ class ActuatorDevice(DeviceABC):
         await self._motion.refresh()
         return {"position": float(position)}
 
-    @property
-    def busy(self) -> bool:
-        return self._motion.busy or has_pending_work(self)
-
     async def stop(self) -> None:
         """Await the driver's stop request; this does not confirm motion ceased."""
-        try:
-            await run_blocking(self, self._actuator.stop)
-        except BaseException:
-            self._motion.watch()
-            raise
-        await self._motion.refresh()
+        await self._motion.command(self._actuator.stop)
 
     def get_capability(self, name: str) -> Optional[Any]:
         if name == "actuator":

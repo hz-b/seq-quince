@@ -97,6 +97,14 @@ py-version = "3.11"
 [tool.pylint.similarities]
 min-similarity-lines = 10
 
+[tool.pylint.design]
+max-args = 6          # default 5: one extra slot for real domain parameters
+max-locals = 18       # default 15: headroom, but larger functions should be split
+max-returns = 8       # default 6: allows idiomatic guard clauses
+max-branches = 12     # default 12: unchanged, complexity signal
+max-statements = 50   # default 50: unchanged, complexity signal
+max-attributes = 7    # default 7: unchanged
+
 [tool.pylint.messages_control]
 disable = [
     "all",

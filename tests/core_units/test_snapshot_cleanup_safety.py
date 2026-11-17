@@ -60,7 +60,7 @@ class SnapshotCleanupSafetyTests(CoreTestCase):
     def setUp(self):
         super().setUp()
         # These tests deliberately exercise permanent conservative retention.
-        self.patch(lifecycle, "_retained", {})
+        self.patch(lifecycle, "_context", lifecycle.LifecycleContext())
 
     def check_failure(self, rollback_capture, cancellation=False):
         failure = asyncio.CancelledError() if cancellation else ValueError("snapshot failed")

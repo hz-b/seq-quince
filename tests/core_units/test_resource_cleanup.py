@@ -394,7 +394,35 @@ class ResourceCleanupTests(CoreTestCase):
 
         # The retained extension has no actual resources; isolate this deliberate
         # permanent-retention case from other tests' process-wide diagnostics.
-        with patch.object(lifecycle_module, "_retained", {}):
+        with patch.object(lifecycle_module, "_context", lifecycle_module.LifecycleContext()):
+            self.run_async(scenario())
+
+    def test_hold_is_requested_explicitly_for_adapters_that_track_their_work(self):
+        async def scenario():
+            # Unconfirmed alone: closed once the busy state reads idle.
+            settled = ResourceDevice({"name": "settled"})
+            mark_unconfirmed(settled, "original operation did not settle naturally")
+            await asyncio.wait_for(settled.close(), 1)
+            settled.driver.close.assert_called_once_with()
+
+            held = ResourceDevice({"name": "held"})
+            mark_unconfirmed(held, "stop request failed", hold=True)
+            with self.assertLogs(level="ERROR"), self.assertRaisesRegex(
+                CleanupError, "held retained: stop request failed"
+            ):
+                await asyncio.wait_for(held.close(), 1)
+            held.driver.close.assert_not_called()
+            self.assertIn(held, retained_devices())
+
+            # An extension that does not declare tracked work is always held.
+            legacy = LegacyDevice()
+            mark_unconfirmed(legacy, "original operation did not settle naturally")
+            with self.assertLogs(level="ERROR"), self.assertRaisesRegex(
+                CleanupError, "legacy retained"
+            ):
+                await asyncio.wait_for(legacy.close(), 1)
+
+        with patch.object(lifecycle_module, "_context", lifecycle_module.LifecycleContext()):
             self.run_async(scenario())
 
     def test_cancelled_close_waiter_reuses_in_progress_disposal(self):
@@ -488,7 +516,7 @@ class ResourceCleanupTests(CoreTestCase):
                 release.set()
                 with self.assertLogs(level="ERROR"), self.assertRaises(CleanupError):
                     await asyncio.wait_for(device.close(), 1)
-                pending = [task for task in lifecycle_module._background if task.get_loop() is loop]
+                pending = [task for task in lifecycle_module.lifecycle_context().background if task.get_loop() is loop]
                 if pending:
                     await asyncio.gather(*pending, return_exceptions=True)
                 resource.close.assert_not_called()
@@ -496,5 +524,5 @@ class ResourceCleanupTests(CoreTestCase):
             finally:
                 release.set()
 
-        with patch.object(lifecycle_module, "_retained", {}):
+        with patch.object(lifecycle_module, "_context", lifecycle_module.LifecycleContext()):
             self.run_async(scenario())

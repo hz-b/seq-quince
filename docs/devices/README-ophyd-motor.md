@@ -36,7 +36,7 @@ presets:
 | Member | Behavior |
 | --- | --- |
 | `snapshot()` | Returns `{"position": motor.position}`. |
-| `busy` | Cached motion state plus local and pending worker activity; initially true until sampled. Performs no hardware reads. |
+| `busy` | Cached motion state plus pending worker activity; initially true until sampled. Performs no hardware reads. |
 | `stop()` | Awaits `motor.stop()` and samples readiness in workers. Exceptions propagate; request completion does not confirm cessation of motion. |
 | `get_capability(...)` | No named capability; the underlying object is available as `device.motor`. |
 | `supports_rollback()` | Inherited `True`; attempts another position move. |

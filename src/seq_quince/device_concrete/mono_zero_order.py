@@ -76,7 +76,7 @@ class MonoZeroOrderDevice(DeviceABC):
     _cleanup_tracks_work = True
 
 
-    def __init__( # pylint: disable=too-many-locals
+    def __init__(
         self,
         name: str,
         alpha_pv: str,

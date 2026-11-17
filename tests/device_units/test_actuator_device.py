@@ -2,6 +2,7 @@ import asyncio
 import threading
 from unittest.mock import patch
 
+from seq_quince.device import lifecycle
 from seq_quince.device_concrete import actuator
 from seq_quince.scheduler import Scheduler
 from seq_quince.sequence import MoveStep
@@ -116,6 +117,25 @@ class ActuatorDeviceTests(DeviceTestCase):
 
         self.assertIs(caught.exception, error)
         driver.stop.assert_called_once_with()
+
+    def test_scheduler_snapshot_confirms_idle_when_its_tracked_operation_ends(self):
+        # Not after the polling interval: the completed operation wakes the observer.
+        self.patch(lifecycle, "_POLL_INTERVAL", 30)
+        device = actuator.ActuatorDevice("theta", {"pv": "TEST:THETA"})
+        driver = self.drivers[0]
+        driver.rbv = 3.0
+
+        async def scenario():
+            scheduler = Scheduler([MoveStep(device, {"position": 1}, 0)])
+            self.assertEqual(await scheduler.snapshot(), {"theta": {"position": 3.0}})
+            # The sample taken inside the tracked snapshot could not confirm idle;
+            # disposal waits for the observer to do so.
+            await asyncio.wait_for(device.close(), 1)
+            self.assertFalse(device.busy)
+
+        self.run_async(scenario())
+        driver.run_move.assert_not_called()
+        driver.close.assert_called_once_with()
 
     def test_scheduler_cleanup_requires_motion_settlement_after_stop(self):
         for settles in (True, False):

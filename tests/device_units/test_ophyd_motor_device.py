@@ -33,6 +33,18 @@ class OphydMotorDeviceTests(DeviceTestCase):
         self.motor.move.assert_called_once_with(0, wait=True)
         self.assertFalse(self.device.busy)
 
+    def test_move_is_busy_in_worker_after_confirmed_idle(self):
+        self.run_async(self.device.snapshot())
+        self.assertFalse(self.device.busy)
+        seen = []
+        self.motor.move.side_effect = lambda position, *, wait: seen.append(self.device.busy)
+
+        self.run_async(self.device.process({"position": 1}))
+
+        # Outstanding worker activity alone reports busy; there is no local flag.
+        self.assertEqual(seen, [True])
+        self.assertFalse(self.device.busy)
+
     def test_missing_target_never_dispatches(self):
         with self.assertRaisesRegex(ValueError, "position"):
             self.run_async(self.device.process({}))

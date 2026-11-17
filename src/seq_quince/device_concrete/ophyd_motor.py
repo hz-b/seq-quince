@@ -6,16 +6,16 @@ from ophyd import EpicsMotor
 
 from seq_quince.device.device_abs import DeviceABC, get_param
 from seq_quince.device.lifecycle import (
+    MotionBusyMixin,
     MotionState,
     ensure_open,
-    has_pending_work,
     run_blocking,
     track_resource,
 )
 
 logger = logging.getLogger(__name__)
 
-class OphydMotorDevice(DeviceABC):
+class OphydMotorDevice(MotionBusyMixin, DeviceABC):
     _cleanup_tracks_work = True
 
     def __init__(self, name: str, pv_prefix: str):
@@ -24,7 +24,7 @@ class OphydMotorDevice(DeviceABC):
         logger.info(f"Connect to motor record {pv_prefix}")
         self.motor = EpicsMotor(pv_prefix, name=name)
         track_resource(self, self.motor, self.motor.destroy)
-        self._busy = False
+        # EpicsMotor.moving forces a CA read; only workers sample that property.
         self._motion = MotionState(self, lambda: bool(self.motor.moving))
 
     @classmethod
@@ -45,17 +45,7 @@ class OphydMotorDevice(DeviceABC):
         if target is None:
             raise ValueError("Pose must have a 'position' key")
 
-        self._busy = True
-
-        try:
-            move = partial(self.motor.move, target, wait=True)
-            await run_blocking(self, move)
-        except BaseException:
-            self._motion.watch()
-            raise
-        finally:
-            self._busy = False
-        await self._motion.refresh()
+        await self._motion.command(partial(self.motor.move, target, wait=True))
 
     async def snapshot(self) -> Dict[str, float]:
         ensure_open(self)
@@ -69,17 +59,5 @@ class OphydMotorDevice(DeviceABC):
         await self._motion.refresh()
         return {"position": position}
 
-    @property
-    def busy(self) -> bool:
-        # EpicsMotor.moving forces a CA read; only workers sample that property.
-        return self._busy or self._motion.busy or has_pending_work(self)
-
     async def stop(self) -> None:
-        try:
-            await run_blocking(self, self.motor.stop)
-        except BaseException:
-            self._motion.watch()
-            raise
-        finally:
-            self._busy = False
-        await self._motion.refresh()
+        await self._motion.command(self.motor.stop)

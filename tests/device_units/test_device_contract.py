@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from seq_quince.device.device_abs import DeviceABC, get_param
 from seq_quince.device.factory import DEVICE_REGISTRY, DeviceFactory
+from seq_quince.device.lifecycle import MotionBusyMixin
 from seq_quince.device_concrete._option_lookup import first_present, value_from_pose
 from seq_quince.device_concrete.sim import SimDevice
 
@@ -64,6 +65,13 @@ class DeviceContractTests(DeviceTestCase):
         self.assertTrue(
             all(issubclass(cls, DeviceABC) for cls in DEVICE_REGISTRY.values())
         )
+
+    def test_motion_adapters_share_one_busy_definition(self):
+        for name in ("ActuatorDevice", "HexapodDevice", "OphydMotorDevice"):
+            with self.subTest(device=name):
+                device_cls = DEVICE_REGISTRY[name]
+                self.assertNotIn("busy", vars(device_cls))
+                self.assertIs(device_cls.busy, MotionBusyMixin.busy)
 
     def test_factory_creation_and_registration(self):
         config = {"type": "SimDevice", "name": "sim", "delay": "0"}
